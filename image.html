@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Page Title</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <script src="imgProcessing.js"></script>
+    <script>
+/*imgProcess.config = {
+    imgSrc: ['/lena.jpg']
+    //imgWH: [[512,512],[512,512]]
+};
+imgProcess.init();
+*/
+imgProcess.task(['/img/timg.jpg','/lena.jpg'], function(img1,img2){;
+    document.body.appendChild(img1.canvas);
+    let p =document.createElement('p');
+    p.innerHTML = '23333333333';
+    document.body.appendChild(p)
+});
+imgProcess.task(['/lena.jpg'], function(img2){
+    this.imread(img2);
+    this.toMatrix(img2);
+    this.rgb2gray(img2);
+    [img2.r,img2.g,img2.b] = [this.transpose(img2.r),this.transpose(img2.g),this.transpose(img2.b)];
+    this.cat(img2);
+    document.body.appendChild(img2.canvas);
+});
+imgProcess.task([''], function(img){
+    img.canvas.width = 200;
+    img.canvas.height = 200;
+    document.body.appendChild(img.canvas);
+    context = img.ctx;
+    context.moveTo(100,100);
+    context.lineTo(700,700);
+    context.lineWidth = 5;
+    context.strokeStyle = "red";
+    context.stroke();
+});
+    </script>
+</body>
+</html>
