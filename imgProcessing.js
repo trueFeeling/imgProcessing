@@ -32,8 +32,6 @@
             for(let i = lens;i<imgSrcArray.length;i++){
                 el = imgSrcArray[i];
                 if (!this.modules.hasOwnProperty(el)) {
-                    //canvas = document.createElement('canvas');
-                    //ctx = canvas.getContext('2d');
                     //canvas.id = el + num;
                     imgArray[num] = new Image();
                     //由于imgArry[index]是一个对象
@@ -55,13 +53,16 @@
             let cacheArray = [];
             imgArray.forEach((img, index) => {
                 img.onload = function () {
-                    // intall a image module
+                    // 装载img模块
                     _self.installImg(this.src, this);
                     defineCanvas(img);
-                    // notify the proxy that this image has been loaded
+                    //获得初始化时候的img数据
+                    //用于改变img大小，而触发canvas重绘的问题
                     this.ctx.drawImage(this,0,0);
                     this.cacheData = img.ctx.getImageData(0,0,img.width,img.height);
+                    //通知proxy, 该img已经加载好
                     _self.proxy.notify(this.src);
+                    this.onload = null;
                 }
             });
             //check taskList...
@@ -146,102 +147,82 @@
             taskImg = [];
 
         let execute = function (src) {
-            /*
-            var uris = task.uris,
-            callback = task.callback;
-            for (var i = 0, arr = []; i < uris.length; i++) {
-                arr.push(zmm._modules[uris[i]]);
-            }
-            callback.apply(null, arr);
-            */
-            //
                 for (key in taskList) {
                     //遍历有没有依赖该image的任务
                     if (!taskList.hasOwnProperty(key)) {
                         continue
                     }
-                    console.log(taskList[key].imgSrc,taskList[key].imgSrc.length)
                     if(taskList[key].imgSrc.length>1){
-                        //说明此时的img含有一个任务，这个任务同时依赖与其他任务
+                        //说明此时的img含有一个任务，这个任务同时还依赖其他img
                         let task = taskList[key].imgSrc;
                             taskList[key].imgSrc.forEach(imgSrc=>{
                                 if (imgSrc === src){
-                                    //说明该任务依赖队列里有该image
+                                    //说明该任务里有该image
+                                    //那么该任务的长度减一
                                     taskList[key].len--;             
-                                }else if(imgProto.hasImg(imgSrc)){
-                                    taskList[key].len--;
                                 }
                             });
-                            if(taskList[key].len <= 0){
+                            if(taskList[key].len === 0){
                                 //全被装载好
                                 let taskImmediateArr = [];
-                                console.log('taskList[key]:',taskList[key].imgSrc)
                                 for(val of taskList[key].imgSrc){
                                     taskImmediateArr.push(imgProto.modules[val])
                                 }
-                                console.log('muti tasks: ',taskImmediateArr)
                                 taskList[key].imgTask.apply(imgProto,taskImmediateArr);
                                 delete taskList[key]
                             }
                     }else if(taskList[key].imgSrc.indexOf(src)>-1){
-                            //说明该任务依赖队列里有该image
+                            //说明该任务依赖队列里有该img, 且不依赖其他img
+                            //直接执行
                             taskList[key].imgTask.call(imgProto,imgProto.modules[src]);
                             delete taskList[key];
                         }
                 }
-            //taskList[0].imgTask[0].apply(null, taskImgArray);
         };
 
         proxy.watch = function () {
-            // add each piece of images into the taskList
             let imgArray = arguments[0];
             let Fn = arguments[1] || '';
             imgArray = (imgArray instanceof Array) ? imgArray : [imgArray];
-            console.log(imgArray,': ',imgArray[0].length)
+            //将相对路径转化为绝对路径=> http://www.xxx.com/..../img.jpg
             imgArray = imgProto.resolvePath(imgArray);
             let sum = 0;
-            let index = 0;
             let len;
             //如果是空数组，那么表面创建了一个空白canvas
-            //必须有回调，才允许创建
-            console.log(imgArray)
+            //必须有回调，才允许创建一个空的canvas
               if(imgArray[0].length === 0){
+               // 以在imgSrc数组中的位置, 作为ID
                imgProto.config.imgSrc.push('canvas');
                let src = imgProto.config.imgSrc.length-1;
                //installImg
                imgProto.pushImg('canvas'+src);
-                    //let canvas = document.createElement('canvas'),
-                    //img.canvas = canvas;
                     let canvasObj = {};
+                    //传入一个空的对象, 在defineCanvas里面对应img
                     defineCanvas(canvasObj,src);
                     imgProto.installImg('canvas'+src,canvasObj);
-                    console.log('canvasObj',canvasObj.canvas);
-                    console.log('Fn: ',Fn)
                     Fn.call(imgProto,canvasObj);
-                    //sum = 0;
-                    //delete taskList[taskId+ '']
-                    //taskId++;
                     return
               }
             imgArray.forEach((img, index) => {
                 if (!imgProto.modules.hasOwnProperty(img)) {
-                    //没有配置，现在进行配置
+                    //modules里面没有该img, 重新添加进去
                     len = imgProto.config.imgSrc.length || 0;
                     imgProto.config.imgSrc.push(img);
-                    //imgProto.init(Fn);
-                    //新添加
                     imgProto.init(len);
                 }
             });
             if (arguments.length === 2) {
                 //对应imgProcess.task(['./lena.jpg'],callback)
+                //即此时传入的有回调函数
                 //模块push完：添加任务队列
+                //下面for循环, 表示图片已经加载好
                 for(val of imgArray){
                     if(imgProto.hasImg(val)){
+                        //记录加载好的图片数
                         sum++
                     }
                 }
-                console.log('imgArray: LEN:',imgArray)
+                //不管有没有加载好, 先将当前任务加入任务队列
                 taskList[taskId + ''] = {
                     imgSrc: imgArray,
                     imgTask: Fn,
@@ -253,8 +234,10 @@
                     for(imgMod of imgArray){
                         imgObjArray.push(imgProto.modules[imgMod]);
                     }
+                    //如果都加载好了, 直接执行该任务
                     Fn.apply(imgProto,imgObjArray);
                     sum = 0;
+                    //任务执行完，删除
                     delete taskList[taskId+ '']
                 }
                 taskId++;
@@ -326,10 +309,7 @@
                     data[(k * width * 4 + 4 * j) + 0] = gray[k][j];
                     data[(k * width * 4 + 4 * j) + 1] = gray[k][j];
                     data[(k * width * 4 + 4 * j) + 2] = gray[k][j];
-                    img.r[k][j] = gray[k][j];
-                    img.g[k][j] = gray[k][j];
-                    img.b[k][j] = gray[k][j];
-                    //this.rgb.data[(k*this.width*4+4*j)+3] = 255;
+                    [img.r[k][j],img.g[k][j],img.b[k][j]] = [gray[k][j],gray[k][j],gray[k][j]];
                 }
             }
             //this.rgb.data[0]=0;
@@ -383,7 +363,7 @@
             if (degree == 90) {
                 matrix.forEach((el, row, arrRow) => {
                     arrRow[row].forEach((el, col, arrCol) => {
-                        arrCol[col]
+                        //arrCol[col]
                     })
                 })
             }
@@ -429,7 +409,6 @@
     }
     //监听width,height
     function defineCanvas(){
-        //console.log('define\'s',img)
         let defineData = ['width','height'],
             canvas = document.createElement('canvas'),
             ctx = canvas.getContext('2d'),
@@ -437,7 +416,6 @@
             img.ctx = ctx;
             canvas.id = typeof img.src === 'undefined' ? arguments[1] : imgProto.config.imgSrc.indexOf(img.src);
             img.canvas = canvas;
-            console.log('img.canvas: ',img.canvas)
             img.canvas.width = img.width == 0 ? img.canvas.width : img.width;
             img.canvas.height = img.height ==0 ? img.canvas.height : img.height;
             defineData.forEach(key=>{
@@ -462,10 +440,7 @@
                             img.cacheData = img.ctx.getImageData(0,0,img.canvas.width,img.canvas.height);
                             img.ctx.putImageData(img.cacheData,0,0);
                         }else{
-                            //let cn = document.getElementById(img.canvas.id);
-                            //img.ctx.drawImage(cn,0,0,img.canvas.width,img.canvas.height);
-                            //img.cacheData = img.ctx.getImageData(0,0,cn.width,cn.height);
-                            //img.ctx.putImageData(img.cacheData,0,0);
+                            //Todo
                         }
                     }
                 });

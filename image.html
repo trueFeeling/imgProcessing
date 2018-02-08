@@ -9,12 +9,12 @@
 <body>
     <script src="imgProcessing.js"></script>
     <script>
-/*imgProcess.config = {
+imgProcess.config = {
     imgSrc: ['/lena.jpg']
     //imgWH: [[512,512],[512,512]]
 };
 imgProcess.init();
-*/
+
 imgProcess.task(['/img/timg.jpg','/lena.jpg'], function(img1,img2){;
     document.body.appendChild(img1.canvas);
     let p =document.createElement('p');
